@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Hello</title>
+	<style>
+		.canvas {
+			/*width: 600px;*/
+			/*height: 500px;*/
+			border: solid 2px black;
+			margin: auto;
+			display: block;
+		}
+	</style>
+</head>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+	var socket = io();
+</script>
+<body>
+	<canvas id="canvas" class="canvas" width="800" height="500" onClick="shoot()"></canvas>
+</body>
+<script>
+	var canvasElem = document.getElementById("canvas");
+	var canvas = canvasElem.getContext("2d");
+	canvas.font = "12px Arial";
+
+	var gameLogsCount = 0;
+
+	var me = null;
+	var alsoMe = null;
+
+	var players = [];
+	var bullets = [];
+
+	var isMoveUp    = false;
+	var isMoveDown  = false;
+	var isMoveLeft  = false;
+	var isMoveRight = false;
+
+	
+	document.addEventListener('keydown', function(event) {
+		if (event.code == "KeyW") moveUp();
+		else if (event.code == "KeyS") moveDown();
+		if (event.code == "KeyA") moveLeft();
+		else if (event.code == "KeyD") moveRight();
+
+		// if (event.code == "") shoot();
+	});
+
+
+	document.addEventListener('keyup', function(event) {
+		if (event.code == "KeyW") isMoveUp = false;
+		if (event.code == "KeyS") isMoveDown = false;
+		if (event.code == "KeyA") isMoveLeft = false;
+		if (event.code == "KeyD") isMoveRight = false;
+	});
+
+
+	function moveUp() { isMoveDown = false; isMoveUp = true; }
+	function moveDown() { isMoveUp = false; isMoveDown = true; }
+	function moveLeft() { isMoveRight = false; isMoveLeft = true; }
+	function moveRight() { isMoveLeft = false; isMoveRight = true; }
+
+
+	function sendMeToServer() {
+		socket.emit("update", alsoMe);
+	}
+
+
+	function drawGameLog(text) {
+		canvas.fillStyle = "green";
+		canvas.fillText(text, canvasElem.width - 200, gameLogsCount * 12 + 12);
+		gameLogsCount++;
+	}
+
+	function shoot() {
+		var pos = canvasElem.getBoundingClientRect();
+		var clicked = [event.x - pos.x, event.y - pos.y];
+		
+		var me_center_x = me.pos.x + 20;
+		var me_center_y = me.pos.y + 20;
+
+		clicked = [clicked[0] - me_center_x, clicked[1] - me_center_y]
+
+		var c = Math.sqrt(clicked[0] * clicked[0] + clicked[1] * clicked[1]); 
+		var cos = clicked[0] / c;
+		var sin = clicked[1] / c;
+
+		var bullet = {
+			pos: {
+				x: me_center_x - 8, 
+				y: me_center_y - 8
+			}, 
+			cos: cos, 
+			sin: sin, 
+			speed: 2,
+			color: "#f00"
+		};
+
+		socket.emit("shoot", bullet);
+	}
+
+	// socket.on("update-recived", (data) => {
+	// 	me = alsoMe;
+	// });
+
+
+	socket.on("someone-movement", function(data) {
+		players = data.players;
+		bullets = data.bullets;
+	});
+
+
+	socket.on("player-connected", function(data) {
+		me = data;
+		alsoMe = me;
+		window.requestAnimationFrame(loop)
+	});
+
+	socket.on("game-log", function(data) {
+		drawGameLog(data);
+	});
+
+
+	function update(progress) {
+		if (isMoveRight) alsoMe.pos.x += progress * alsoMe.speed;
+		else if (isMoveLeft) alsoMe.pos.x -= progress * alsoMe.speed;
+		if (isMoveUp) alsoMe.pos.y -= progress * alsoMe.speed;
+		else if (isMoveDown) alsoMe.pos.y += progress * alsoMe.speed;
+
+		sendMeToServer();
+	}
+
+
+	function draw() {
+		canvas.fillStyle = "#FFF";
+		canvas.fillRect(0, 0, 600, 500);
+
+
+		players.forEach((player) => {
+			canvas.fillStyle = player.color;
+			canvas.fillRect(player.pos.x, player.pos.y, 40, 40);
+		});
+
+		bullets.forEach((bullet) => {
+			canvas.fillStyle = bullet.color;
+			canvas.fillRect(bullet.pos.x, bullet.pos.y, 15, 15);
+		});
+	}
+
+
+	function loop(timestamp) {
+		var progress = timestamp - lastRender
+
+		update(progress)
+		draw()
+
+		lastRender = timestamp
+		window.requestAnimationFrame(loop)
+	}
+	var lastRender = 0
+</script>
+</html>
