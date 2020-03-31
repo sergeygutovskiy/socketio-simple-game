@@ -74,30 +74,35 @@
 	}
 
 	function shoot() {
-		var pos = canvasElem.getBoundingClientRect();
-		var clicked = [event.x - pos.x, event.y - pos.y];
-		
-		var me_center_x = me.pos.x + 20;
-		var me_center_y = me.pos.y + 20;
+		if (me.bullets > 0) {
+			console.log(me.bullets);
+			alsoMe.bullets--;
 
-		clicked = [clicked[0] - me_center_x, clicked[1] - me_center_y]
+			var pos = canvasElem.getBoundingClientRect();
+			var clicked = [event.x - pos.x, event.y - pos.y];
+			
+			var me_center_x = me.pos.x + 20;
+			var me_center_y = me.pos.y + 20;
 
-		var c = Math.sqrt(clicked[0] * clicked[0] + clicked[1] * clicked[1]); 
-		var cos = clicked[0] / c;
-		var sin = clicked[1] / c;
+			clicked = [clicked[0] - me_center_x, clicked[1] - me_center_y]
 
-		var bullet = {
-			pos: {
-				x: me_center_x - 8, 
-				y: me_center_y - 8
-			}, 
-			cos: cos, 
-			sin: sin, 
-			speed: 2,
-			color: "#f00"
-		};
+			var c = Math.sqrt(clicked[0] * clicked[0] + clicked[1] * clicked[1]); 
+			var cos = clicked[0] / c;
+			var sin = clicked[1] / c;
 
-		socket.emit("shoot", bullet);
+			var bullet = {
+				pos: {
+					x: me_center_x - 8, 
+					y: me_center_y - 8
+				}, 
+				cos: cos, 
+				sin: sin, 
+				speed: 6,
+				id: me.id,
+				color: "#f00"
+			};
+			socket.emit("shoot", bullet);
+		}
 	}
 
 	// socket.on("update-recived", (data) => {
@@ -106,7 +111,14 @@
 
 
 	socket.on("someone-movement", function(data) {
-		players = data.players;
+		players = data.players.map(p => {
+			if (p.id == me.id) {
+				me.bullets = p.bullets;
+				// console.log(me.bullets);
+			}
+			return p;
+		});
+
 		bullets = data.bullets;
 	});
 
@@ -127,6 +139,11 @@
 		else if (isMoveLeft) alsoMe.pos.x -= progress * alsoMe.speed;
 		if (isMoveUp) alsoMe.pos.y -= progress * alsoMe.speed;
 		else if (isMoveDown) alsoMe.pos.y += progress * alsoMe.speed;
+
+		if (alsoMe.pos.x < 0) alsoMe.pos.x += progress * alsoMe.speed;
+		else if (alsoMe.pos.x + 40 > 600) alsoMe.pos.x -= progress * alsoMe.speed;
+		if (alsoMe.pos.y < 0) alsoMe.pos.y += progress * alsoMe.speed;
+		else if (alsoMe.pos.y + 40 > 500) alsoMe.pos.y -= progress * alsoMe.speed;
 
 		sendMeToServer();
 	}
@@ -150,14 +167,14 @@
 
 
 	function loop(timestamp) {
-		var progress = timestamp - lastRender
+		var progress = timestamp - lastRender;
 
-		update(progress)
-		draw()
+		update(progress);
+		draw();
 
-		lastRender = timestamp
-		window.requestAnimationFrame(loop)
+		lastRender = timestamp;
+		window.requestAnimationFrame(loop);
 	}
-	var lastRender = 0
+	var lastRender = 0;
 </script>
 </html>
